@@ -8,6 +8,7 @@ router.use(requireAuth);
 
 router.post('/', taskController.create);
 router.get('/', taskController.list);
+router.patch('/reorder', taskController.reorder);
 router.get('/:id', taskController.getOne);
 router.patch('/:id', taskController.update);
 router.delete('/:id', taskController.remove);

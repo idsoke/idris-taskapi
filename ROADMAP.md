@@ -44,7 +44,7 @@ Dokumen ini berisi rencana pengembangan aplikasi dari kondisi saat ini menuju pr
 - [x] **Label / Tag** — beri label bebas pada task (e.g. "urgent", "personal", "work")
 - [x] **Prioritas** — field `priority`: `low`, `medium`, `high`
 - [x] **Due date** — deadline task, lengkap dengan filter `?overdue=true`
-- [ ] **Urutan / reorder** — user bisa atur urutan task secara manual
+- [x] **Urutan / reorder** — user bisa atur urutan task secara manual
 
 ### Pencarian & Filter
 - [ ] Full-text search pada title dan description (`?search=kata-kunci`)

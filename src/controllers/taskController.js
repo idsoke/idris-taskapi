@@ -4,10 +4,12 @@ const {
   findTaskById,
   updateTask,
   deleteTask,
+  reorderTasks,
 } = require('../models/taskModel');
 
 const VALID_STATUSES = ['pending', 'in_progress', 'done'];
 const VALID_PRIORITIES = ['low', 'medium', 'high'];
+const VALID_SORTS = ['manual'];
 
 function normalizeLabels(labels) {
   if (!Array.isArray(labels) || !labels.every((l) => typeof l === 'string')) {
@@ -53,7 +55,7 @@ async function create(req, res) {
 }
 
 async function list(req, res) {
-  const { status, overdue, priority, label } = req.query;
+  const { status, overdue, priority, label, sort } = req.query;
   if (status && !VALID_STATUSES.includes(status)) {
     return res.status(400).json({ error: `status must be one of: ${VALID_STATUSES.join(', ')}` });
   }
@@ -62,11 +64,16 @@ async function list(req, res) {
     return res.status(400).json({ error: `priority must be one of: ${VALID_PRIORITIES.join(', ')}` });
   }
 
+  if (sort && !VALID_SORTS.includes(sort)) {
+    return res.status(400).json({ error: `sort must be one of: ${VALID_SORTS.join(', ')}` });
+  }
+
   const tasks = await listTasksByUser(req.user.id, {
     status,
     overdue: overdue === 'true',
     priority,
     label,
+    sort,
   });
   res.json(tasks);
 }
@@ -121,4 +128,17 @@ async function remove(req, res) {
   res.status(204).send();
 }
 
-module.exports = { create, list, getOne, update, remove };
+async function reorder(req, res) {
+  const { order } = req.body;
+  if (!Array.isArray(order) || order.length === 0 || !order.every((id) => Number.isInteger(id) && id > 0)) {
+    return res.status(400).json({ error: 'order must be a non-empty array of task ids' });
+  }
+
+  const result = await reorderTasks(req.user.id, order);
+  if (result.error) {
+    return res.status(400).json({ error: result.error });
+  }
+  res.json(result.value);
+}
+
+module.exports = { create, list, getOne, update, remove, reorder };

@@ -107,6 +107,7 @@ Semua endpoint task memerlukan header `Authorization: Bearer <token>`.
 | GET | `/tasks` | List semua task (opsional `?status=`) |
 | GET | `/tasks/:id` | Detail satu task |
 | PATCH | `/tasks/:id` | Update title / description / status / priority / labels |
+| PATCH | `/tasks/reorder` | Atur ulang urutan seluruh task milik user |
 | DELETE | `/tasks/:id` | Hapus task |
 
 `status` menerima nilai: `pending`, `in_progress`, atau `done`.
@@ -122,10 +123,25 @@ Query params untuk `GET /tasks`:
 - `?priority=high` — filter berdasarkan priority
 - `?label=work` — filter task yang memiliki label tertentu
 - `?overdue=true` — tampilkan task yang sudah melewati deadline dan belum selesai
+- `?sort=manual` — urutkan berdasarkan urutan manual (lihat bagian **Reorder Task**), bukan `due_date`
 
 Query params bisa dikombinasikan, contoh: `?status=pending&priority=high&label=work`.
 
-List task diurutkan: task dengan `due_date` terdekat di atas, task tanpa `due_date` di bawah.
+Secara default, list task diurutkan: task dengan `due_date` terdekat di atas, task tanpa `due_date` di bawah. Gunakan `?sort=manual` untuk menampilkan task sesuai urutan yang diatur lewat endpoint reorder.
+
+### Reorder Task
+
+Setiap task punya field `position` (integer). Task baru otomatis ditaruh di posisi paling akhir.
+
+```bash
+# Urutkan ulang seluruh task: kirim array id sesuai urutan yang diinginkan
+curl -X PATCH http://localhost:3000/tasks/reorder \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"order":[3,1,2]}'
+```
+
+`order` wajib berisi **persis** seluruh id task milik user yang bersangkutan, masing-masing sekali — jika ada yang kurang, lebih, duplikat, atau bukan milik user, request ditolak dengan `400`. Response berisi daftar task yang sudah terurut sesuai `order`.
 
 ```bash
 # Buat task dengan deadline, priority, dan label
@@ -201,11 +217,13 @@ tasks
   due_date      TIMESTAMPTZ
   priority      TEXT NOT NULL DEFAULT 'medium'
   labels        TEXT[] NOT NULL DEFAULT '{}'
+  position      INTEGER NOT NULL
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 
 INDEX idx_tasks_user_id ON tasks(user_id)
 INDEX idx_tasks_labels ON tasks USING GIN (labels)
+INDEX idx_tasks_user_position ON tasks(user_id, position)
 ```
 
 ## Struktur Project
@@ -214,6 +232,10 @@ INDEX idx_tasks_labels ON tasks USING GIN (labels)
 idris-taskapi/
 ├── migrations/
 │   ├── 001_init.sql        # DDL tabel users dan tasks
+│   ├── 002_add_due_date.sql
+│   ├── 003_add_priority.sql
+│   ├── 004_add_labels.sql
+│   ├── 005_add_position.sql
 │   └── run.js              # Script runner migrasi
 ├── src/
 │   ├── config/

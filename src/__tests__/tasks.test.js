@@ -200,6 +200,14 @@ describe('GET /tasks', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it('returns 400 for an invalid sort value', async () => {
+    const res = await request(app)
+      .get('/tasks?sort=bogus')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.statusCode).toBe(400);
+  });
+
   it('filters by label', async () => {
     const created = await request(app)
       .post('/tasks')
@@ -438,6 +446,94 @@ describe('PATCH /tasks/:id', () => {
       .send({ title: 'Hijacked' });
 
     expect(res.statusCode).toBe(404);
+  });
+});
+
+describe('PATCH /tasks/reorder', () => {
+  let reorderToken;
+  let taskIds;
+
+  beforeAll(async () => {
+    reorderToken = await registerAndLogin('reorder_owner');
+    taskIds = [];
+    for (const title of ['First', 'Second', 'Third']) {
+      const res = await request(app)
+        .post('/tasks')
+        .set('Authorization', `Bearer ${reorderToken}`)
+        .send({ title });
+      taskIds.push(res.body.id);
+    }
+  });
+
+  it('assigns increasing position to newly created tasks', async () => {
+    const res = await request(app)
+      .get('/tasks?sort=manual')
+      .set('Authorization', `Bearer ${reorderToken}`);
+
+    expect(res.body.map((t) => t.id)).toEqual(taskIds);
+  });
+
+  it('reorders tasks and reflects the new order with ?sort=manual', async () => {
+    const newOrder = [taskIds[2], taskIds[0], taskIds[1]];
+
+    const res = await request(app)
+      .patch('/tasks/reorder')
+      .set('Authorization', `Bearer ${reorderToken}`)
+      .send({ order: newOrder });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.map((t) => t.id)).toEqual(newOrder);
+
+    const after = await request(app)
+      .get('/tasks?sort=manual')
+      .set('Authorization', `Bearer ${reorderToken}`);
+    expect(after.body.map((t) => t.id)).toEqual(newOrder);
+  });
+
+  it('returns 400 when order is missing an existing task id', async () => {
+    const res = await request(app)
+      .patch('/tasks/reorder')
+      .set('Authorization', `Bearer ${reorderToken}`)
+      .send({ order: [taskIds[0], taskIds[1]] });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("returns 400 when order contains an id not owned by the requesting user", async () => {
+    const otherTask = await request(app)
+      .post('/tasks')
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ title: 'Not part of this reorder' });
+
+    const res = await request(app)
+      .patch('/tasks/reorder')
+      .set('Authorization', `Bearer ${reorderToken}`)
+      .send({ order: [...taskIds, otherTask.body.id] });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 400 when order is not an array of positive integers', async () => {
+    const res = await request(app)
+      .patch('/tasks/reorder')
+      .set('Authorization', `Bearer ${reorderToken}`)
+      .send({ order: ['not-a-number'] });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 400 when order is an empty array', async () => {
+    const res = await request(app)
+      .patch('/tasks/reorder')
+      .set('Authorization', `Bearer ${reorderToken}`)
+      .send({ order: [] });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 401 without a token', async () => {
+    const res = await request(app).patch('/tasks/reorder').send({ order: taskIds });
+    expect(res.statusCode).toBe(401);
   });
 });
 
