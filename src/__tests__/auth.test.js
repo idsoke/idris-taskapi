@@ -43,11 +43,11 @@ describe('POST /auth/register', () => {
 
   it('returns 409 on duplicate email', async () => {
     const email = `dup_${Date.now()}@example.com`;
-    await request(app).post('/auth/register').send({ email, password: 'pass123' });
+    await request(app).post('/auth/register').send({ email, password: 'pass1234' });
 
     const res = await request(app)
       .post('/auth/register')
-      .send({ email, password: 'pass123' });
+      .send({ email, password: 'pass1234' });
 
     expect(res.statusCode).toBe(409);
   });
@@ -68,7 +68,7 @@ describe('POST /auth/login', () => {
 
   it('returns 401 on wrong password', async () => {
     const email = `wrong_${Date.now()}@example.com`;
-    await request(app).post('/auth/register').send({ email, password: 'correct' });
+    await request(app).post('/auth/register').send({ email, password: 'correct-horse' });
 
     const res = await request(app)
       .post('/auth/login')

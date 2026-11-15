@@ -7,70 +7,27 @@ const {
   reorderTasks,
 } = require('../models/taskModel');
 
-const VALID_STATUSES = ['pending', 'in_progress', 'done'];
-const VALID_PRIORITIES = ['low', 'medium', 'high'];
-const VALID_SORTS = ['manual'];
-
-function normalizeLabels(labels) {
-  if (!Array.isArray(labels) || !labels.every((l) => typeof l === 'string')) {
-    return { error: 'labels must be an array of strings' };
-  }
-
-  const normalized = [...new Set(labels.map((l) => l.trim()).filter(Boolean))];
-  return { value: normalized };
-}
+// Request bodies, queries and params are validated by the zod schemas in
+// src/validation/schemas.js before these handlers run (see taskRoutes.js).
 
 async function create(req, res) {
-  const { title, description, due_date, priority, labels } = req.body;
-  if (!title) {
-    return res.status(400).json({ error: 'title is required' });
-  }
-
-  if (due_date && isNaN(Date.parse(due_date))) {
-    return res.status(400).json({ error: 'due_date must be a valid ISO 8601 date' });
-  }
-
-  if (priority && !VALID_PRIORITIES.includes(priority)) {
-    return res.status(400).json({ error: `priority must be one of: ${VALID_PRIORITIES.join(', ')}` });
-  }
-
-  let normalizedLabels;
-  if (labels !== undefined) {
-    const result = normalizeLabels(labels);
-    if (result.error) {
-      return res.status(400).json({ error: result.error });
-    }
-    normalizedLabels = result.value;
-  }
-
+  const { title, description, due_date, priority, labels } = req.valid.body;
   const task = await createTask({
     userId: req.user.id,
     title,
     description,
     dueDate: due_date,
     priority,
-    labels: normalizedLabels,
+    labels,
   });
   res.status(201).json(task);
 }
 
 async function list(req, res) {
-  const { status, overdue, priority, label, sort } = req.query;
-  if (status && !VALID_STATUSES.includes(status)) {
-    return res.status(400).json({ error: `status must be one of: ${VALID_STATUSES.join(', ')}` });
-  }
-
-  if (priority && !VALID_PRIORITIES.includes(priority)) {
-    return res.status(400).json({ error: `priority must be one of: ${VALID_PRIORITIES.join(', ')}` });
-  }
-
-  if (sort && !VALID_SORTS.includes(sort)) {
-    return res.status(400).json({ error: `sort must be one of: ${VALID_SORTS.join(', ')}` });
-  }
-
+  const { status, overdue, priority, label, sort } = req.valid.query;
   const tasks = await listTasksByUser(req.user.id, {
     status,
-    overdue: overdue === 'true',
+    overdue: overdue === true,
     priority,
     label,
     sort,
@@ -79,7 +36,7 @@ async function list(req, res) {
 }
 
 async function getOne(req, res) {
-  const task = await findTaskById(req.params.id, req.user.id);
+  const task = await findTaskById(req.valid.params.id, req.user.id);
   if (!task) {
     return res.status(404).json({ error: 'Task not found' });
   }
@@ -87,33 +44,13 @@ async function getOne(req, res) {
 }
 
 async function update(req, res) {
-  const { title, description, status, priority, labels } = req.body;
-  if (status && !VALID_STATUSES.includes(status)) {
-    return res.status(400).json({ error: `status must be one of: ${VALID_STATUSES.join(', ')}` });
+  const { title, description, status, priority, labels } = req.valid.body;
+  const fields = { title, description, status, priority, labels };
+  if ('due_date' in req.valid.body) {
+    fields.dueDate = req.valid.body.due_date;
   }
 
-  if (priority && !VALID_PRIORITIES.includes(priority)) {
-    return res.status(400).json({ error: `priority must be one of: ${VALID_PRIORITIES.join(', ')}` });
-  }
-
-  const fields = { title, description, status, priority };
-  if ('due_date' in req.body) {
-    const due_date = req.body.due_date;
-    if (due_date !== null && isNaN(Date.parse(due_date))) {
-      return res.status(400).json({ error: 'due_date must be a valid ISO 8601 date or null' });
-    }
-    fields.dueDate = due_date;
-  }
-
-  if (labels !== undefined) {
-    const result = normalizeLabels(labels);
-    if (result.error) {
-      return res.status(400).json({ error: result.error });
-    }
-    fields.labels = result.value;
-  }
-
-  const task = await updateTask(req.params.id, req.user.id, fields);
+  const task = await updateTask(req.valid.params.id, req.user.id, fields);
   if (!task) {
     return res.status(404).json({ error: 'Task not found' });
   }
@@ -121,7 +58,7 @@ async function update(req, res) {
 }
 
 async function remove(req, res) {
-  const deleted = await deleteTask(req.params.id, req.user.id);
+  const deleted = await deleteTask(req.valid.params.id, req.user.id);
   if (!deleted) {
     return res.status(404).json({ error: 'Task not found' });
   }
@@ -129,12 +66,7 @@ async function remove(req, res) {
 }
 
 async function reorder(req, res) {
-  const { order } = req.body;
-  if (!Array.isArray(order) || order.length === 0 || !order.every((id) => Number.isInteger(id) && id > 0)) {
-    return res.status(400).json({ error: 'order must be a non-empty array of task ids' });
-  }
-
-  const result = await reorderTasks(req.user.id, order);
+  const result = await reorderTasks(req.user.id, req.valid.body.order);
   if (result.error) {
     return res.status(400).json({ error: result.error });
   }
