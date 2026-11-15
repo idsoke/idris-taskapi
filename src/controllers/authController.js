@@ -13,10 +13,7 @@ function signToken(user) {
 }
 
 async function register(req, res) {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'email and password are required' });
-  }
+  const { email, password } = req.valid.body;
 
   const existing = await findUserByEmail(email);
   if (existing) {
@@ -24,17 +21,22 @@ async function register(req, res) {
   }
 
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-  const user = await createUser({ email, passwordHash });
-  const token = signToken(user);
+  let user;
+  try {
+    user = await createUser({ email, passwordHash });
+  } catch (err) {
+    // Two concurrent sign-ups with the same email: the unique index catches the second one.
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Email already registered' });
+    }
+    throw err;
+  }
 
-  res.status(201).json({ user, token });
+  res.status(201).json({ user, token: signToken(user) });
 }
 
 async function login(req, res) {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'email and password are required' });
-  }
+  const { email, password } = req.valid.body;
 
   const user = await findUserByEmail(email);
   if (!user) {
@@ -46,10 +48,9 @@ async function login(req, res) {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
 
-  const token = signToken(user);
   res.json({
     user: { id: user.id, email: user.email, role: user.role },
-    token,
+    token: signToken(user),
   });
 }
 

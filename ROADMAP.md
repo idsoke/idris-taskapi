@@ -24,14 +24,15 @@ Dokumen ini berisi rencana pengembangan aplikasi dari kondisi saat ini menuju pr
 - [x] Test coverage minimal 80% (dicek otomatis di CI, threshold di `package.json`)
 
 ### Validasi & Error Handling
-- [ ] Validasi input yang lebih ketat (panjang password, format email) — pakai `zod` atau `joi`
-- [ ] Error handling terpusat yang konsisten di seluruh endpoint
-- [ ] Tambah try-catch di semua controller (saat ini unhandled rejection bisa crash server)
+- [x] Validasi input yang lebih ketat (panjang password, format email) — pakai `zod`
+- [x] Error handling terpusat yang konsisten di seluruh endpoint
+- [x] Unhandled rejection tidak lagi crash server (upgrade ke Express 5, error async diteruskan ke error handler)
 
 ### Developer Experience
-- [ ] Tambah `.gitignore` yang proper (saat ini `node_modules` mungkin ter-track)
+- [x] Tambah `.gitignore` yang proper
 - [ ] ESLint + Prettier untuk konsistensi kode
-- [ ] `npm run lint` dan `npm test` di CI (GitHub Actions)
+- [x] `npm test` di CI (GitHub Actions)
+- [ ] `npm run lint` di CI
 - [ ] Logging yang lebih baik (pakai `pino` atau `winston`, bukan `console.error` mentah)
 
 ---
@@ -91,7 +92,7 @@ Dokumen ini berisi rencana pengembangan aplikasi dari kondisi saat ini menuju pr
 - [ ] **Versioning** — prefix `/api/v1/` agar tidak breaking saat ada perubahan besar
 - [ ] **Rate limiting** — cegah abuse (pakai `express-rate-limit`)
 - [ ] **API key** — selain JWT, support API key untuk akses programatik
-- [ ] **OpenAPI/Swagger docs** — dokumentasi interaktif yang auto-generate dari kode
+- [x] **OpenAPI/Swagger docs** — Swagger UI di `/docs`, skema request di-generate dari validator zod
 - [ ] **Webhooks** — kirim event ke URL eksternal saat task dibuat/diupdate/dihapus
 
 ### Infrastruktur

@@ -38,7 +38,9 @@ Aplikasi ini cocok digunakan sebagai:
 | Komponen | Teknologi |
 |---|---|
 | Runtime | Node.js |
-| Framework | Express.js |
+| Framework | Express 5 |
+| Validasi | `zod` |
+| Dokumentasi API | OpenAPI 3.1 + Swagger UI |
 | Database | PostgreSQL 16 |
 | Auth | JWT (`jsonwebtoken`) |
 | Password hashing | bcrypt |
@@ -66,6 +68,23 @@ npm run dev            # server berjalan di http://localhost:3000
 | `JWT_EXPIRES_IN` | | `1d` | Durasi token JWT |
 
 ## API
+
+Dokumentasi interaktif tersedia di **`/docs`** (Swagger UI) saat server berjalan, misalnya http://localhost:3000/docs. Spesifikasi mentahnya ada di `/openapi.json`. Skema request di dokumen ini dibuat langsung dari validator `zod`, jadi dokumentasi selalu sama dengan yang benar-benar diterima API.
+
+### Format error
+
+Semua error dikembalikan sebagai JSON dengan field `error`. Error validasi (`400`) juga menyertakan `details` berisi setiap masalah yang ditemukan:
+
+```json
+{
+  "error": "password must be at least 8 characters",
+  "details": [
+    { "in": "body", "field": "password", "message": "password must be at least 8 characters" }
+  ]
+}
+```
+
+Aturan utama: email harus valid, password 8–72 karakter saat register, title 1–200 karakter, maksimal 20 label per task, dan id task harus bilangan bulat positif. JSON yang rusak menghasilkan `400`, body di atas 100 kb menghasilkan `413`, dan error yang tidak terduga selalu menjadi `500` tanpa membuat server crash.
 
 Postman collection tersedia di [`postman/`](./postman). Import `idris-taskapi.postman_collection.json` dan `idris-taskapi.postman_environment.json`, pilih environment **idris-taskapi (local)**, lalu jalankan **Auth → Register** atau **Auth → Login** — token JWT tersimpan otomatis ke variabel `{{token}}` dan dipakai di semua request Tasks.
 
@@ -243,14 +262,22 @@ idris-taskapi/
 │   ├── controllers/
 │   │   ├── authController.js
 │   │   └── taskController.js
+│   ├── docs/
+│   │   └── openapi.js      # OpenAPI spec, request schemas dari zod
 │   ├── middleware/
-│   │   └── auth.js         # JWT verification middleware
+│   │   ├── auth.js         # JWT verification middleware
+│   │   ├── validate.js     # Validasi body/query/params dengan zod
+│   │   └── errorHandler.js # Format error JSON terpusat
 │   ├── models/
 │   │   ├── userModel.js
 │   │   └── taskModel.js
 │   ├── routes/
 │   │   ├── authRoutes.js
 │   │   └── taskRoutes.js
+│   ├── validation/
+│   │   └── schemas.js      # Skema zod untuk semua request
+│   ├── errors.js           # HttpError
+│   ├── app.js              # Express app
 │   └── index.js            # Entry point
 ├── docker-compose.yml
 ├── .env.example
@@ -261,6 +288,7 @@ idris-taskapi/
 
 - **Schema**: `users` dan `tasks` dihubungkan via foreign key dengan `ON DELETE CASCADE` — task user ikut terhapus jika akun dihapus. Index pada `tasks.user_id` menjaga performa query per-user.
 - **Auth**: password di-hash bcrypt sebelum disimpan; JWT menyimpan `id`, `email`, dan `role` agar API tetap stateless.
+- **Validasi**: setiap request divalidasi oleh middleware `validate()` sebelum masuk controller, sehingga controller hanya menerima data yang sudah bersih. Express 5 meneruskan error dari handler async ke `errorHandler`, jadi query yang gagal tidak lagi membuat proses crash.
 - **Authorization**: setiap query task di-scope ke `req.user.id`, sehingga user hanya bisa melihat dan memodifikasi task miliknya sendiri.
 
 ## Roadmap
